@@ -106,8 +106,12 @@ def expected_day(cpr_pct, pdc, tc, bc):
 
 
 # ── V3.1 SCANNER ─────────────────────────────────────
-def scan_v3(df, index_name, adr_pct_limit=40, body_filter=False):
+def scan_v3(df, index_name, adr_pct_limit=40, body_filter=False, pb_value_filter=False, pb_wick_filter=False, pb_inside_filter=False, f_sl_rs=0, f_tgt_rs=0):
     buf = INDEX_CONFIG[index_name]["buf"]
+    lot = INDEX_CONFIG[index_name]["lot"]
+    fixed_sl_pts = f_sl_rs / lot if f_sl_rs > 0 else 0
+    fixed_tgt_pts = f_tgt_rs / lot if f_tgt_rs > 0 else 0
+    
     signals = []
     for date in df["Date"].unique():
         day = df[df["Date"]==date]
@@ -127,15 +131,51 @@ def scan_v3(df, index_name, adr_pct_limit=40, body_filter=False):
         c1_range = c1["High"]-c1["Low"]
         c1_body = abs(c1["Close"]-c1["Open"])/c1_range*100 if c1_range>0 else 0
         signal = None
+        
+        # --- PIVOT BOSS INSIDE VALUE FILTER ---
+        if pb_inside_filter:
+            prev_dates = df[df["Date"] < date]["Date"].unique()
+            if len(prev_dates) > 0:
+                p_r0 = df[df["Date"] == prev_dates[-1]].iloc[0]
+                p_tc, p_bc = p_r0["Top_CPR"], p_r0["Bot_CPR"]
+                tc, bc = r0["Top_CPR"], r0["Bot_CPR"]
+                if not (tc <= p_tc and bc >= p_bc):
+                    continue  # Skip entire day if not an Inside CPR day
+        
+        # --- PIVOT BOSS VALUE AREA FILTER ---
+        allowed_direction = "BOTH"
+        if pb_value_filter:
+            prev_dates = df[df["Date"] < date]["Date"].unique()
+            if len(prev_dates) > 0:
+                p_r0 = df[df["Date"] == prev_dates[-1]].iloc[0]
+                p_pivot, p_tc, p_bc = p_r0["Pivot"], p_r0["Top_CPR"], p_r0["Bot_CPR"]
+                tc, bc = r0["Top_CPR"], r0["Bot_CPR"]
+                
+                # Check for inside value (compression leads to breakouts in either direction)
+                if tc <= p_tc and bc >= p_bc:
+                    allowed_direction = "BOTH"
+                elif pivot > p_pivot:
+                    allowed_direction = "BUY"
+                elif pivot < p_pivot:
+                    allowed_direction = "SELL"
+        
+        # --- SIGNAL LOGIC ---
+        # If body filter is ON and 1st candle is a doji, skip the whole day
+        if body_filter and c1_body < 40:
+            continue
 
-        sig_b = _check_trigger(c1,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,"B",date,pivot)
-        if sig_b:
-            if body_filter and c1_body < 40: sig_b = None
-            else: sig_b["Body_%"]=round(c1_body,2); signal=sig_b
-
+        # Check 1st Candle (Now Scenario A)
+        sig_a = _check_trigger(c1,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,"A",date,pivot,allowed_direction,pb_wick_filter,fixed_sl_pts,fixed_tgt_pts)
+        if sig_a:
+            sig_a["Body_%"]=round(c1_body,2)
+            signal = sig_a
+        
+        # If no 1st candle trigger, check 2nd Candle (Now Scenario B)
         if signal is None and c2 is not None:
-            sig_a = _check_trigger(c2,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,"A",date,pivot)
-            if sig_a: sig_a["Body_%"]=round(c1_body,2); signal=sig_a
+            sig_b = _check_trigger(c2,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,"B",date,pivot,allowed_direction,pb_wick_filter,fixed_sl_pts,fixed_tgt_pts)
+            if sig_b:
+                sig_b["Body_%"]=round(c1_body,2)
+                signal = sig_b
 
         if signal:
             for k,v in {"CPR_%":cpr_pct,"CPR_Type":cpr_cat,"R1":r1,"R2":r2,"R3":r3,
@@ -146,21 +186,37 @@ def scan_v3(df, index_name, adr_pct_limit=40, body_filter=False):
     return signals
 
 
-def _check_trigger(candle,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,scenario,date,pivot):
+def _check_trigger(candle,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,scenario,date,pivot, allowed_dir="BOTH", wick_filter=False, fixed_sl_pts=0, fixed_tgt_pts=0):
     close = candle["Close"]
     ts = candle.name.strftime("%H:%M") if hasattr(candle.name,"strftime") else str(candle.name)
+    
+    c_range = candle["High"] - candle["Low"]
+    upper_wick = candle["High"] - max(candle["Open"], close)
+    lower_wick = min(candle["Open"], close) - candle["Low"]
+    buy_wick_pct = (upper_wick / c_range * 100) if c_range > 0 else 0
+    sell_wick_pct = (lower_wick / c_range * 100) if c_range > 0 else 0
 
     # ── BUY ──
-    if close > pdh and close > r1:
-        target = r3 if close > r2 else r2
-        tlbl = "R3" if close > r2 else "R2"
-        # FIX 1: Target must be ABOVE entry for BUY
-        if target <= close: return None
-        if scenario == "B":
-            sl_o1 = (r2-buf) if close>r2 else (r1-buf)
-            sl = min(sl_o1, pdh-buf)
+    if allowed_dir in ["BOTH", "BUY"] and close > pdh and close > r1:
+        if wick_filter and buy_wick_pct > 50: return None
+        
+        if fixed_tgt_pts > 0:
+            target = close + fixed_tgt_pts
+            tlbl = "Fixed"
         else:
-            sl = candle["Low"]-buf
+            target = r3 if close > r2 else r2
+            tlbl = "R3" if close > r2 else "R2"
+            # FIX 1: Target must be ABOVE entry for BUY
+            if target <= close: return None
+            
+        if fixed_sl_pts > 0:
+            sl = close - fixed_sl_pts
+        else:
+            if scenario == "A": # 1st Candle: Structural SL (Wider)
+                sl = min(r1, pdh) - buf
+            else: # 2nd Candle: Candle-based SL
+                sl = candle["Low"] - buf
+            
         risk = close-sl
         reward = target-close
         if risk<=0 or reward<=0: return None
@@ -172,16 +228,26 @@ def _check_trigger(candle,pdh,pdl,r1,r2,r3,s1,s2,s3,buf,scenario,date,pivot):
                 "RR":round(reward/risk,2)}
 
     # ── SELL ──
-    if close < pdl and close < s1:
-        target = s3 if close < s2 else s2
-        tlbl = "S3" if close < s2 else "S2"
-        # FIX 1: Target must be BELOW entry for SELL
-        if target >= close: return None
-        if scenario == "B":
-            sl_o1 = (s2+buf) if close<s2 else (s1+buf)
-            sl = max(sl_o1, pdl+buf)
+    if allowed_dir in ["BOTH", "SELL"] and close < pdl and close < s1:
+        if wick_filter and sell_wick_pct > 50: return None
+        
+        if fixed_tgt_pts > 0:
+            target = close - fixed_tgt_pts
+            tlbl = "Fixed"
         else:
-            sl = candle["High"]+buf
+            target = s3 if close < s2 else s2
+            tlbl = "S3" if close < s2 else "S2"
+            # FIX 1: Target must be BELOW entry for SELL
+            if target >= close: return None
+            
+        if fixed_sl_pts > 0:
+            sl = close + fixed_sl_pts
+        else:
+            if scenario == "A": # 1st Candle: Structural SL (Wider)
+                sl = max(s1, pdl) + buf
+            else: # 2nd Candle: Candle-based SL
+                sl = candle["High"] + buf
+            
         risk = sl-close
         reward = close-target
         if risk<=0 or reward<=0: return None
@@ -209,8 +275,18 @@ def simulate(df, signals, index_name, premium=0):
         post = day.loc[day.index>ts]
         if post.empty: continue
         exit_px,exit_rsn,exit_time = entry,"EOD",etime
+        max_f, max_a = entry, entry
         for idx_t,bar in post.iterrows():
             h,l = bar["High"],bar["Low"]
+            
+            # Excursion tracking
+            if side=="BUY":
+                if h > max_f: max_f = h
+                if l < max_a: max_a = l
+            else:
+                if l < max_f: max_f = l
+                if h > max_a: max_a = h
+                
             t_str = idx_t.strftime("%H:%M") if hasattr(idx_t,"strftime") else ""
             if side=="BUY":
                 if l<=sl: exit_px,exit_rsn,exit_time=sl,"SL Hit",t_str; break
@@ -219,11 +295,14 @@ def simulate(df, signals, index_name, premium=0):
                 if h>=sl: exit_px,exit_rsn,exit_time=sl,"SL Hit",t_str; break
                 if l<=target: exit_px,exit_rsn,exit_time=target,"Target Hit",t_str; break
         else:
-            eod = post[post.index.hour==15]
+            eod = post[(post.index.hour==15) & (post.index.minute>=15)]
             exit_px = eod.iloc[0]["Close"] if not eod.empty else post.iloc[-1]["Close"]
             exit_rsn,exit_time = "EOD Exit",eod.index[0].strftime("%H:%M") if not eod.empty else post.index[-1].strftime("%H:%M")
 
         pnl_pts = round((exit_px-entry) if side=="BUY" else (entry-exit_px),2)
+        mfe_pts = (max_f - entry) if side == "BUY" else (entry - max_f)
+        mae_pts = (entry - max_a) if side == "BUY" else (max_a - entry)
+        
         try: dow=pd.Timestamp(date).day_name()
         except: dow=""
         results.append({
@@ -233,6 +312,8 @@ def simulate(df, signals, index_name, premium=0):
             "Exit Reason":exit_rsn,"P&L Pts":pnl_pts,"P&L ₹":round(pnl_pts*lot,2),
             "Risk Pts":sig["Risk_Pts"],"RR":sig["RR"],
             "Fut Entry":round(entry+premium,2),"Fut Exit":round(exit_px+premium,2),
+            "MFE Pts":round(mfe_pts,2),"MAE Pts":round(mae_pts,2),
+            "MFE ₹":round(mfe_pts*lot,2),"MAE ₹":round(mae_pts*lot,2),
             "CPR_%":sig["CPR_%"],"CPR_Type":sig["CPR_Type"],"Body_%":sig.get("Body_%",0),
             "Success":pnl_pts>0,
         })

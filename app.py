@@ -52,8 +52,59 @@ def main():
     for k,v in {"rdf":pd.DataFrame(),"raw":pd.DataFrame(),"scan":[],"ran":False}.items():
         if k not in st.session_state: st.session_state[k]=v
 
-    st.markdown('<div class="hero"><h1>⚡ CPR PRO SCANNER & BACKTESTER v3.1</h1><p>Structure-Based Entry · Spot Signals · Futures Execution · © 2026 Buvenesh | Trisea Trader</p></div>',unsafe_allow_html=True)
-    t1,t2,t3,t4=st.tabs(["📡 LIVE SCANNER","🎯 STRATEGY LAB","📊 ANALYTICS","📘 PLAYBOOK"])
+    logo_svg = """
+    <div style="display: flex; justify-content: center; align-items: center; margin-top: -10px; margin-bottom: 10px;">
+        <svg width="280" height="80" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#F59E0B" />
+                    <stop offset="100%" stop-color="#EA580C" />
+                </linearGradient>
+                <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#0284C7" />
+                    <stop offset="100%" stop-color="#3B82F6" />
+                </linearGradient>
+            </defs>
+            <circle cx="45" cy="50" r="28" fill="url(#sunGrad)" opacity="0.15"/>
+            <circle cx="45" cy="50" r="18" fill="url(#sunGrad)" opacity="0.4"/>
+            <path d="M 5 35 Q 20 20, 35 35 T 65 35 L 85 35" fill="none" stroke="url(#waveGrad)" stroke-width="3" stroke-linecap="round">
+                <animate attributeName="d" values="M 5 35 Q 20 20, 35 35 T 65 35 L 85 35; M 5 35 Q 20 50, 35 35 T 65 35 L 85 35; M 5 35 Q 20 20, 35 35 T 65 35 L 85 35" dur="3s" repeatCount="indefinite" />
+            </path>
+            <path d="M 5 50 Q 20 35, 35 50 T 65 50 L 85 50" fill="none" stroke="url(#waveGrad)" stroke-width="4.5" stroke-linecap="round">
+                <animate attributeName="d" values="M 5 50 Q 20 35, 35 50 T 65 50 L 85 50; M 5 50 Q 20 65, 35 50 T 65 50 L 85 50; M 5 50 Q 20 35, 35 50 T 65 50 L 85 50" dur="3s" begin="0.5s" repeatCount="indefinite" />
+            </path>
+            <path d="M 5 65 Q 20 50, 35 65 T 65 65 L 85 65" fill="none" stroke="url(#waveGrad)" stroke-width="3" stroke-linecap="round">
+                <animate attributeName="d" values="M 5 65 Q 20 50, 35 65 T 65 65 L 85 65; M 5 65 Q 20 80, 35 65 T 65 65 L 85 65; M 5 65 Q 20 50, 35 65 T 65 65 L 85 65" dur="3s" begin="1s" repeatCount="indefinite" />
+            </path>
+            <rect x="70" y="22" width="12" height="38" fill="#10B981" rx="2"/>
+            <line x1="76" y1="12" x2="76" y2="22" stroke="#10B981" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="76" y1="60" x2="76" y2="72" stroke="#10B981" stroke-width="2.5" stroke-linecap="round"/>
+            <text x="105" y="54" font-family="'Inter', sans-serif" font-weight="800" font-size="34" fill="#F8FAFC" letter-spacing="1.5">TRISEA</text>
+            <text x="108" y="74" font-family="'Inter', sans-serif" font-weight="600" font-size="13" fill="#10B981" letter-spacing="5.5">TRADER</text>
+        </svg>
+    </div>
+    """
+    st.markdown(logo_svg, unsafe_allow_html=True)
+    st.markdown('<div class="hero"><h1>⚡ CPR PRO SCANNER & BACKTESTER v3.1</h1><p>Structure-Based Entry · Spot Signals · Futures Execution · © 2026 Buvenesh</p></div>',unsafe_allow_html=True)
+    
+    if "idx_scan" not in st.session_state:
+        st.session_state.idx_scan = eng.scan_live_batch("Indices Only", 100)
+        
+    if st.session_state.idx_scan:
+        idx_df = pd.DataFrame(st.session_state.idx_scan)
+        if not idx_df.empty:
+            st.markdown('<div class="sh">📌 Index CPR & Expected Day</div>',unsafe_allow_html=True)
+            cols=st.columns(min(len(idx_df), 4))
+            for i,(_,r) in enumerate(idx_df.head(4).iterrows()):
+                with cols[i]:
+                    ed=r.get("Expected Day","—")
+                    ct=r.get("CPR Type","—")
+                    clr="gn" if "Bull" in str(ed) or "Very" in ct else ("rs" if "Bear" in str(ed) else "am")
+                    mc(r["Symbol"],f"{ct} · {r['CPR %ADR']:.1f}%",clr)
+                    st.caption(f"📉 {ed}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    t1,t2,t3,t5,t4=st.tabs(["📡 TOMORROW CPR SCANNER","🎯 STRATEGY LAB","📊 ANALYTICS","⚙️ OPTIMIZER","📘 PLAYBOOK"])
 
     # ═══ TAB 1: LIVE SCANNER ═══════════════════════
     with t1:
@@ -73,22 +124,6 @@ def main():
 
         if st.session_state.scan:
             sdf=pd.DataFrame(st.session_state.scan)
-            # Split indices vs stocks
-            idx_df=sdf[sdf["Symbol"].isin(eng.INDEX_CONFIG.keys())]
-            stk_df=sdf[~sdf["Symbol"].isin(eng.INDEX_CONFIG.keys())]
-
-            if not idx_df.empty:
-                st.markdown('<div class="sh">📌 Index CPR & Expected Day</div>',unsafe_allow_html=True)
-                cols=st.columns(len(idx_df))
-                for i,(_,r) in enumerate(idx_df.iterrows()):
-                    with cols[i]:
-                        ed=r.get("Expected Day","—")
-                        ct=r.get("CPR Type","—")
-                        clr="gn" if "Bull" in str(ed) or "Very" in ct else ("rs" if "Bear" in str(ed) else "am")
-                        mc(r["Symbol"],f"{ct} · {r['CPR %ADR']:.1f}%",clr)
-                        st.caption(ed)
-
-            # Narrow filter table
             narrow=sdf[sdf["CPR %ADR"]<=adr_l].sort_values("CPR %ADR")
             m1,m2,m3=st.columns(3)
             with m1: mc("Total Scanned",len(sdf))
@@ -103,20 +138,26 @@ def main():
     with t2:
         st.markdown('<div class="sh">V3.1 Strategy Lab — Structure-Based Backtest</div>',unsafe_allow_html=True)
         st.markdown('<div class="ib">Entry: 1st/2nd 5-min candle above PDH+R1 (BUY) or below PDL+S1 (SELL). R:R ≥ 1:1 enforced. Targets at next pivot level.</div>',unsafe_allow_html=True)
-        c1,c2,c3,c4=st.columns([1.2,1,1,1])
+        c1,c2,c3,c4=st.columns([1.2,1,1,1.5])
         with c1: idx=st.selectbox("Index",list(eng.INDEX_CONFIG.keys()),key="idx")
         with c2: alim=st.slider("Max CPR Width (%ADR)",5,40,15,key="adr")
         with c3:
             cfg=eng.INDEX_CONFIG[idx]
             prem=st.number_input("Futures Premium",value=cfg["prem"],step=5,key="pm")
-        with c4: bfil=st.checkbox("1st Candle Body ≥40%",key="bf")
+            f_sl=st.number_input("Fixed SL (₹) [0=Pivot]",value=0,step=500,key="fsl")
+            f_tgt=st.number_input("Fixed Target (₹) [0=Pivot]",value=0,step=500,key="ftgt")
+        with c4: 
+            bfil=st.checkbox("1st Candle Body ≥40%",key="bf")
+            pb_val=st.checkbox("Pivot Boss: Value Area Bias", key="pb_val")
+            pb_wick=st.checkbox("Pivot Boss: Open-Drive (No Wicks)", key="pb_wick")
+            pb_inside=st.checkbox("Pivot Boss: Inside CPR Only", key="pb_in")
 
         if st.button("🚀 Run Backtest",use_container_width=True,key="run"):
             with st.spinner("Fetching & simulating..."):
                 df=eng.fetch_and_prep(cfg["ticker"])
                 if not df.empty:
                     st.session_state.raw=df
-                    sigs=eng.scan_v3(df,idx,alim,bfil)
+                    sigs=eng.scan_v3(df,idx,alim,bfil,pb_val,pb_wick,pb_inside,f_sl,f_tgt)
                     res=eng.simulate(df,sigs,idx,prem)
                     st.session_state.rdf=pd.DataFrame(res) if res else pd.DataFrame()
                     st.session_state.ran=True
@@ -128,16 +169,15 @@ def main():
 
             # ── COMPACT FILTERS ──
             st.markdown('<div class="sh">Filters</div>',unsafe_allow_html=True)
-            f1,f2,f3,f4,f5=st.columns(5)
+            f1,f2,f3,f4=st.columns(4)
             days=["Monday","Tuesday","Wednesday","Thursday","Friday"]
             with f1: sd=st.multiselect("Day",days,default=days,key="fd")
             with f2: st2=st.multiselect("Type",rdf["Type"].unique().tolist(),default=rdf["Type"].unique().tolist(),key="ft")
-            with f3: se=st.multiselect("Exit",rdf["Exit Reason"].unique().tolist(),default=rdf["Exit Reason"].unique().tolist(),key="fe")
-            with f4: sc=st.multiselect("CPR",rdf["CPR_Type"].unique().tolist(),default=rdf["CPR_Type"].unique().tolist(),key="fc")
-            with f5:
+            with f3: sc=st.multiselect("CPR",rdf["CPR_Type"].unique().tolist(),default=rdf["CPR_Type"].unique().tolist(),key="fc")
+            with f4:
                 mos=sorted(rdf["Date"].apply(lambda x:x[:7]).unique().tolist())
                 sm=st.multiselect("Month",mos,default=mos,key="fm")
-            fdf=rdf[rdf["Day"].isin(sd)&rdf["Type"].isin(st2)&rdf["Exit Reason"].isin(se)&rdf["CPR_Type"].isin(sc)&rdf["Date"].apply(lambda x:x[:7]).isin(sm)]
+            fdf=rdf[rdf["Day"].isin(sd)&rdf["Type"].isin(st2)&rdf["CPR_Type"].isin(sc)&rdf["Date"].apply(lambda x:x[:7]).isin(sm)]
 
             # ── METRICS ──
             rpt=eng.performance_report(fdf,lot) if not fdf.empty else {}
@@ -149,13 +189,13 @@ def main():
             with m5: mc("Total P&L",f"₹{rpt.get('Total P&L ₹',0):,.0f}","gn" if rpt.get("Total P&L ₹",0)>=0 else "rs")
 
             # ── TABLE ──
-            dcols=["Date","Day","Time","Type","Scenario","Entry","SL","Target","Target_Lvl","Exit","Exit Time","Exit Reason","P&L Pts","P&L ₹","Risk Pts","RR","Fut Entry","Fut Exit","CPR_%","CPR_Type","Body_%","Success"]
+            dcols=["Date","Day","Time","Type","Scenario","Entry","SL","Target","Target_Lvl","Exit","Exit Time","Exit Reason","MAE ₹","MFE ₹","P&L Pts","P&L ₹","Risk Pts","RR","Fut Entry","Fut Exit","CPR_%","CPR_Type","Body_%","Success"]
             sdf2=fdf[[c for c in dcols if c in fdf.columns]].copy().sort_values(["Date","Time"],ascending=[False,False]).reset_index(drop=True)
             nc=[c for c in sdf2.select_dtypes(include=[np.number]).columns]
             fmt={c:"{:.2f}" for c in nc if c!="Success"}
             st.dataframe(sdf2.style.format(fmt,na_rep="—").map(
                 lambda v:"color:#22c55e;font-weight:700" if isinstance(v,(int,float)) and v>0 else("color:#f43f5e;font-weight:700" if isinstance(v,(int,float)) and v<0 else ""),
-                subset=[c for c in["P&L Pts","P&L ₹"] if c in sdf2.columns]
+                subset=[c for c in["P&L Pts","P&L ₹","MFE ₹","MAE ₹"] if c in sdf2.columns]
             ),use_container_width=True,height=300)
 
             dc1,dc2=st.columns(2)
@@ -296,17 +336,84 @@ def main():
             dw["Win%"]=(dw["Wins"]/dw["Trades"]*100).round(1); dw["PnL"]=dw["PnL"].round(2)
             st.dataframe(dw,use_container_width=True)
 
+            st.markdown('<div class="sh">Trade Excursion (MAE / MFE)</div>',unsafe_allow_html=True)
+            st.write("Tracks how far trades went into profit (MFE) vs how far they went into loss (MAE) before exiting.")
+            import plotly.express as px
+            rdf_c = rdf.copy()
+            rdf_c["Outcome"] = rdf_c["Success"].apply(lambda x: "Winner" if x else "Loser")
+            fig = px.scatter(rdf_c, x="MAE ₹", y="MFE ₹", color="Outcome",
+                             color_discrete_map={"Winner": "#22c55e", "Loser": "#ef4444"},
+                             hover_data=["Date", "Time", "Type", "P&L ₹"],
+                             title="Maximum Adverse vs Favorable Excursion")
+            fig.update_layout(template="plotly_dark", height=500)
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ═══ TAB 5: OPTIMIZER ══════════════════════════
+    with t5:
+        st.markdown('<div class="sh">Hyperparameter Optimizer</div>',unsafe_allow_html=True)
+        st.write("Run a Grid Search to find the mathematically perfect SL and Target for Win Rate.")
+        o_idx = st.selectbox("Select Index for Optimization", list(eng.INDEX_CONFIG.keys()), key="opt_idx")
+        co1, co2 = st.columns(2)
+        with co1:
+            o_sl_min = st.number_input("Min SL (₹)", 1000, 5000, 1500, 500)
+            o_sl_max = st.number_input("Max SL (₹)", 1000, 10000, 3500, 500)
+        with co2:
+            o_tgt_min = st.number_input("Min Target (₹)", 2000, 15000, 4000, 1000)
+            o_tgt_max = st.number_input("Max Target (₹)", 2000, 20000, 10000, 1000)
+            
+        if o_sl_max < o_sl_min: o_sl_max = o_sl_min
+        if o_tgt_max < o_tgt_min: o_tgt_max = o_tgt_min
+        
+        if st.button("🚀 Run Grid Search", use_container_width=True, key="opt_run"):
+            with st.spinner(f"Fetching data and running grid search for {o_idx}..."):
+                cfg = eng.INDEX_CONFIG[o_idx]
+                df = eng.fetch_and_prep(cfg["ticker"])
+                if not df.empty:
+                    alim = 15 # default
+                    lot = cfg["lot"]
+                    hm_data = []
+                    sl_range = list(range(o_sl_min, o_sl_max + 500, 500))
+                    tgt_range = list(range(o_tgt_min, o_tgt_max + 1000, 1000))
+                    
+                    for s in sl_range:
+                        for t in tgt_range:
+                            sigs = eng.scan_v3(df, o_idx, alim, f_sl_rs=s, f_tgt_rs=t)
+                            if not sigs: continue
+                            res = eng.simulate(df, sigs, o_idx, 0)
+                            if not res: continue
+                            tdf = pd.DataFrame(res)
+                            wr = tdf["Success"].mean() * 100
+                            hm_data.append({"SL": s, "Target": t, "WinRate": wr})
+                    
+                    if hm_data:
+                        st.session_state.opt_hm_data = hm_data
+                        st.session_state.opt_idx_run = o_idx
+                    else:
+                        st.warning("No trades generated in this grid.")
+                else:
+                    st.error("Failed to fetch data for the selected index.")
+                    
+        if "opt_hm_data" in st.session_state:
+            hdf = pd.DataFrame(st.session_state.opt_hm_data)
+            hdf_p = hdf.pivot(index="SL", columns="Target", values="WinRate")
+            import plotly.express as px
+            fig = px.imshow(hdf_p, text_auto=".1f", color_continuous_scale="Greens",
+                          labels=dict(x="Target (₹)", y="Stop Loss (₹)", color="WinRate"),
+                          title=f"Win Rate Optimization Heatmap ({st.session_state.get('opt_idx_run','')})")
+            fig.update_layout(template="plotly_dark", height=600)
+            st.plotly_chart(fig, use_container_width=True)
+
     # ═══ TAB 4: PLAYBOOK ══════════════════════════
     with t4:
         st.markdown('<div class="sh">V3.1 Strategy Playbook</div>',unsafe_allow_html=True)
         for title,body in [
-            ("1 · Entry Logic","<b>BUY:</b> 1st/2nd 5-min candle closes above <b>PDH + R1</b><br><b>SELL:</b> closes below <b>PDL + S1</b><br>Only 09:15–09:25 window. Max 1 trade/day."),
+            ("1 · Entry Logic","<b>BUY:</b> 1st/2nd 5-min candle closes above <b>PDH + R1</b><br><b>SELL:</b> closes below <b>PDL + S1</b><br>Only 09:15–09:25 window. Max 1 trade/day.<br><b>Filter:</b> If 1st candle is a doji (body &lt; 40%), skip the entire day."),
             ("2 · Target","BUY above R1 → <b>R2</b>. Above R2 → <b>R3</b><br>SELL below S1 → <b>S2</b>. Below S2 → <b>S3</b><br>Target MUST be in correct direction. R:R ≥ 1:1 enforced."),
-            ("3 · Stop-Loss","<b>Scenario B</b> (1st candle): Wider of broken R1/R2 or PDH (BUY) / S1/S2 or PDL (SELL)<br><b>Scenario A</b> (2nd candle): Below candle low/high<br>Buffer: NIFTY/FINNIFTY=5pts | BNF/SENSEX/BANKEX=10pts"),
+            ("3 · Stop-Loss","<b>Scenario A</b> (1st candle): Wider of broken R1/PDH (BUY) or S1/PDL (SELL)<br><b>Scenario B</b> (2nd candle): Below candle low/high<br>Buffer: NIFTY/FINNIFTY=5pts | BNF/SENSEX/BANKEX=10pts"),
             ("4 · Exit","Full 1 lot. Target / SL / EOD 15:15. No partial booking."),
             ("5 · Lots","NIFTY=65 | BANK NIFTY=30 | FINNIFTY=60 | SENSEX=20 | BANKEX=30"),
             ("6 · CPR Types","Very Narrow (&lt;5%) · Narrow (5–15%) · Mid (15–35%) · Wide (&gt;35%)"),
-            ("7 · Fixes in v3.1","✅ Target direction validation<br>✅ R:R ≥ 1:1 gate<br>✅ Very Narrow CPR category<br>✅ Expected day type for indices"),
+            ("7 · Fixes in v3.1","✅ Scenario A/B labels corrected<br>✅ Structural SL (Wider) fixed<br>✅ Body filter applied to whole day<br>✅ R:R ≥ 1:1 gate & Target direction"),
         ]: st.markdown(f'<div class="rc"><h4>{title}</h4><p>{body}</p></div>',unsafe_allow_html=True)
 
     st.markdown('<div class="ft">⚡ CPR Pro Scanner & Backtester v3.1<br>© 2026 Buvenesh | Trisea Trader. All Rights Reserved.</div>',unsafe_allow_html=True)
