@@ -1,5 +1,5 @@
 """
-CPR Pro Trading Engine v3.1 — © 2026 Buvenesh | Trisea Trader
+CPR Pro Trading Engine v3.2 — © 2026 Buvenesh | Trisea Trader
 Fixes: Target direction validation, R:R >= 1:1, Very Narrow CPR,
 batch scanner, expected day type, stock categories.
 """
