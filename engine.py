@@ -7,6 +7,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import pytz
+from datetime import datetime
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -370,14 +371,24 @@ def scan_live_batch(category="Indices Only", adr_limit=15, progress_cb=None):
                         sdf = sdf.dropna(subset=["Close"])
                         if len(sdf)<2: continue
                         prev = sdf.iloc[-2]; curr = sdf.iloc[-1]
-                        H,L,C = prev["High"],prev["Low"],prev["Close"]
+                        
+                        now = datetime.now(IST)
+                        if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                            source = curr
+                            cpr_date = (pd.to_datetime(curr.name) + pd.offsets.BDay(1)).date()
+                        else:
+                            source = prev
+                            cpr_date = pd.to_datetime(curr.name).date()
+
+                        H,L,C = source["High"],source["Low"],source["Close"]
                         pv=(H+L+C)/3; bc_v=(H+L)/2; tc_v=2*pv-bc_v
                         tc_f,bc_f=max(tc_v,bc_v),min(tc_v,bc_v)
                         cw=tc_f-bc_f
-                        dr=H-L; adr_v=dr  # single day approx
+                        dr=source["High"]-source["Low"]; adr_v=dr  # single day approx
                         cpct=cw/adr_v*100 if adr_v>0 else 0
                         results.append({
                             "Symbol":sym,"Price":round(curr["Close"],2),
+                            "CPR Date": str(cpr_date),
                             "Pivot":round(pv,2),"TC":round(tc_f,2),"BC":round(bc_f,2),
                             "CPR Width":round(cw,2),"CPR %ADR":round(cpct,1),
                             "CPR Type":cpr_type(cpct),
@@ -400,16 +411,26 @@ def _scan_indices(adr_limit):
             data = data.dropna(subset=["Close"])
             if len(data)<2: continue
             prev=data.iloc[-2]; curr=data.iloc[-1]
-            H,L,C=prev["High"],prev["Low"],prev["Close"]
+            
+            now = datetime.now(IST)
+            if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+                source = curr
+                cpr_date = (pd.to_datetime(curr.name) + pd.offsets.BDay(1)).date()
+            else:
+                source = prev
+                cpr_date = pd.to_datetime(curr.name).date()
+                
+            H,L,C=source["High"],source["Low"],source["Close"]
             pv=(H+L+C)/3; bc_v=(H+L)/2; tc_v=2*pv-bc_v
             tc_f,bc_f=max(tc_v,bc_v),min(tc_v,bc_v)
             cw=tc_f-bc_f
             adr_s=data["High"]-data["Low"]; adr_v=adr_s.rolling(14,min_periods=1).mean().iloc[-1]
             cpct=cw/adr_v*100 if adr_v>0 else 0
-            pdc=C
+            pdc=source["Close"]
             exp_day=expected_day(cpct,pdc,tc_f,bc_f)
             results.append({
                 "Symbol":name,"Price":round(curr["Close"],2),
+                "CPR Date": str(cpr_date),
                 "Pivot":round(pv,2),"TC":round(tc_f,2),"BC":round(bc_f,2),
                 "CPR Width":round(cw,2),"CPR %ADR":round(cpct,1),
                 "CPR Type":cpr_type(cpct),"Expected Day":exp_day,

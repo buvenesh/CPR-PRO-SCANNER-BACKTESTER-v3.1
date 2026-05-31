@@ -11,24 +11,24 @@ def css():
     st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
     *{font-family:'Inter',sans-serif!important}
-    .main .block-container{padding-top:1rem;max-width:1440px}
-    .hero{text-align:center;padding:1.3rem 1rem;margin-bottom:1rem;
+    .main .block-container{padding-top:0.5rem;max-width:1440px}
+    .hero{text-align:center;padding:0.6rem 1rem;margin-bottom:0.5rem;
         background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);
         border:1px solid rgba(0,212,255,.15);border-radius:16px}
-    .hero h1{font-size:2rem;font-weight:900;margin:0;
+    .hero h1{font-size:1.4rem;font-weight:900;margin:0;
         background:linear-gradient(135deg,#00d4ff,#7c3aed,#f472b6);
         -webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .hero p{color:#94a3b8;font-size:.8rem;margin-top:.2rem}
     .mc{background:linear-gradient(145deg,#111827,#1e293b);border-radius:12px;
-        padding:.8rem 1rem;border:1px solid rgba(255,255,255,.06)}
+        padding:.4rem .6rem;border:1px solid rgba(255,255,255,.06)}
     .mc .lb{font-size:.65rem;text-transform:uppercase;letter-spacing:1.2px;color:#64748b;font-weight:600}
-    .mc .vl{font-size:1.4rem;font-weight:800}
+    .mc .vl{font-size:1.1rem;font-weight:800}
     .cy .vl{color:#00d4ff}.gn .vl{color:#22c55e}.am .vl{color:#f59e0b}
     .rs .vl{color:#f43f5e}.pp .vl{color:#a78bfa}
-    .sh{font-size:1rem;font-weight:700;color:#e2e8f0;border-left:3px solid #00d4ff;padding-left:.6rem;margin:1rem 0 .5rem}
-    .ib{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);border-radius:10px;padding:.6rem .8rem;color:#cbd5e1;font-size:.78rem}
-    .stButton>button{border-radius:10px;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#6366f1)!important;color:#fff!important;border:none!important;padding:.4rem 1.2rem}
-    .stTabs [data-baseweb="tab"]{border-radius:8px 8px 0 0;padding:8px 18px;font-weight:600;font-size:.78rem}
+    .sh{font-size:0.9rem;font-weight:700;color:#e2e8f0;border-left:3px solid #00d4ff;padding-left:.6rem;margin:0.5rem 0 0.3rem}
+    .ib{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);border-radius:10px;padding:.4rem .6rem;color:#cbd5e1;font-size:.75rem}
+    .stButton>button{border-radius:10px;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#6366f1)!important;color:#fff!important;border:none!important;padding:.2rem 1rem}
+    .stTabs [data-baseweb="tab"]{border-radius:8px 8px 0 0;padding:4px 12px;font-weight:600;font-size:.75rem}
     .ft{text-align:center;padding:1.2rem;margin-top:1.5rem;border-top:1px solid rgba(255,255,255,.06);color:#475569;font-size:.7rem}
     .rc{background:linear-gradient(145deg,#111827,#1a2332);border-radius:10px;padding:.8rem 1rem;border:1px solid rgba(255,255,255,.06);margin-bottom:.5rem}
     .rc h4{color:#00d4ff;margin:0 0 .2rem;font-size:.85rem}
@@ -53,8 +53,8 @@ def main():
         if k not in st.session_state: st.session_state[k]=v
 
     logo_svg = """
-    <div style="display: flex; justify-content: center; align-items: center; margin-top: -10px; margin-bottom: 10px;">
-        <svg width="280" height="80" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
+    <div style="display: flex; justify-content: center; align-items: center; margin-top: -20px; margin-bottom: 0px;">
+        <svg width="210" height="60" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
             <defs>
                 <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stop-color="#F59E0B" />
@@ -93,7 +93,9 @@ def main():
     if st.session_state.idx_scan:
         idx_df = pd.DataFrame(st.session_state.idx_scan)
         if not idx_df.empty:
-            st.markdown('<div class="sh">📌 Index CPR & Expected Day</div>',unsafe_allow_html=True)
+            cdate = idx_df["CPR Date"].iloc[0] if "CPR Date" in idx_df.columns else ""
+            d_str = f" for {cdate}" if cdate else ""
+            st.markdown(f'<div class="sh">📌 Index CPR & Expected Day{d_str}</div>',unsafe_allow_html=True)
             cols=st.columns(min(len(idx_df), 4))
             for i,(_,r) in enumerate(idx_df.head(4).iterrows()):
                 with cols[i]:
@@ -103,7 +105,6 @@ def main():
                     mc(r["Symbol"],f"{ct} · {r['CPR %ADR']:.1f}%",clr)
                     st.caption(f"📉 {ed}")
 
-    st.markdown("<br>", unsafe_allow_html=True)
     t1,t2,t3,t5,t4=st.tabs(["📡 TOMORROW CPR SCANNER","🎯 STRATEGY LAB","📊 ANALYTICS","⚙️ OPTIMIZER","📘 PLAYBOOK"])
 
     # ═══ TAB 1: LIVE SCANNER ═══════════════════════
@@ -383,11 +384,21 @@ def main():
                             if not res: continue
                             tdf = pd.DataFrame(res)
                             wr = tdf["Success"].mean() * 100
-                            hm_data.append({"SL": s, "Target": t, "WinRate": wr})
+                            eod_exits = (tdf["Exit Reason"] == "EOD Exit").sum() if "Exit Reason" in tdf.columns else 0
+                            
+                            w_mask = tdf["Success"]
+                            avg_w = tdf.loc[w_mask, "P&L Pts"].mean() if w_mask.any() else 0
+                            avg_l = tdf.loc[~w_mask, "P&L Pts"].mean() if (~w_mask).any() else 0
+                            exp_pts = (wr/100 * avg_w) + ((1 - wr/100) * avg_l)
+                            if pd.isna(exp_pts): exp_pts = 0
+                            pnl_sum = tdf["P&L ₹"].sum()
+                            
+                            hm_data.append({"SL": s, "Target": t, "WinRate": wr, "Expectancy": exp_pts, "PnL": pnl_sum, "Trades": len(tdf), "EOD_Exits": eod_exits})
                     
                     if hm_data:
                         st.session_state.opt_hm_data = hm_data
                         st.session_state.opt_idx_run = o_idx
+                        st.session_state.opt_num_days = df["Date"].nunique()
                     else:
                         st.warning("No trades generated in this grid.")
                 else:
@@ -395,13 +406,73 @@ def main():
                     
         if "opt_hm_data" in st.session_state:
             hdf = pd.DataFrame(st.session_state.opt_hm_data)
-            hdf_p = hdf.pivot(index="SL", columns="Target", values="WinRate")
-            import plotly.express as px
-            fig = px.imshow(hdf_p, text_auto=".1f", color_continuous_scale="Greens",
-                          labels=dict(x="Target (₹)", y="Stop Loss (₹)", color="WinRate"),
-                          title=f"Win Rate Optimization Heatmap ({st.session_state.get('opt_idx_run','')})")
-            fig.update_layout(template="plotly_dark", height=600)
-            st.plotly_chart(fig, use_container_width=True)
+            
+            df_norm = hdf.copy()
+            for c in ["WinRate", "Expectancy", "PnL"]:
+                cmin, cmax = df_norm[c].min(), df_norm[c].max()
+                df_norm[c] = (df_norm[c] - cmin) / (cmax - cmin) if cmax > cmin else 1.0
+            smin, smax = df_norm["SL"].min(), df_norm["SL"].max()
+            df_norm["SL_norm"] = 1.0 - ((df_norm["SL"] - smin) / (smax - smin)) if smax > smin else 1.0
+            
+            df_norm["Score"] = df_norm["WinRate"] + df_norm["Expectancy"] + df_norm["PnL"] + df_norm["SL_norm"]
+            red_idx = df_norm["Score"].idxmax()
+            red_sl, red_tgt = hdf.loc[red_idx, "SL"], hdf.loc[red_idx, "Target"]
+            red_trades = hdf.loc[red_idx, "Trades"]
+            
+            blue_idx = hdf.sort_values(by=["WinRate", "SL", "Expectancy"], ascending=[False, True, False]).index[0]
+            blue_sl, blue_tgt = hdf.loc[blue_idx, "SL"], hdf.loc[blue_idx, "Target"]
+            
+            black_idx = hdf.sort_values(by=["EOD_Exits", "WinRate", "SL"], ascending=[True, False, True]).index[0]
+            black_sl, black_tgt = hdf.loc[black_idx, "SL"], hdf.loc[black_idx, "Target"]
+            black_eod = hdf.loc[black_idx, "EOD_Exits"]
+            
+            hdf_wr = hdf.pivot(index="SL", columns="Target", values="WinRate").fillna(0)
+            hdf_exp = hdf.pivot(index="SL", columns="Target", values="Expectancy").fillna(0)
+            hdf_pnl = hdf.pivot(index="SL", columns="Target", values="PnL").fillna(0)
+            
+            cd_wr = np.stack((hdf_exp.values, hdf_pnl.values), axis=-1)
+            cd_exp = np.stack((hdf_wr.values, hdf_pnl.values), axis=-1)
+            
+            st.markdown("### Optimization Results")
+            st.caption(f"Tested over **{st.session_state.get('opt_num_days', 0)} days**. Score Best (Red) executed **{int(red_trades)} trades**. Black Box: Min EOD Exits ({int(black_eod)}).")
+            ht1, ht2 = st.tabs(["🎯 Win Rate %", "📈 Expectancy (Pts)"])
+            
+            def draw_borders(fig):
+                fig.add_shape(type="rect", x0=red_tgt-500, x1=red_tgt+500, y0=red_sl-250, y1=red_sl+250,
+                              line=dict(color="#ef4444", width=4), fillcolor="rgba(0,0,0,0)")
+                fig.add_shape(type="rect", x0=blue_tgt-480, x1=blue_tgt+480, y0=blue_sl-230, y1=blue_sl+230,
+                              line=dict(color="#3b82f6", width=4), fillcolor="rgba(0,0,0,0)")
+                fig.add_shape(type="rect", x0=black_tgt-460, x1=black_tgt+460, y0=black_sl-210, y1=black_sl+210,
+                              line=dict(color="#000000", width=4), fillcolor="rgba(0,0,0,0)")
+            
+            with ht1:
+                fig1 = go.Figure(data=go.Heatmap(
+                    z=hdf_wr.values, x=hdf_wr.columns, y=hdf_wr.index,
+                    text=hdf_wr.values, texttemplate="%{text:.1f}%", customdata=cd_wr,
+                    hovertemplate="Target: ₹%{x}<br>SL: ₹%{y}<br>WinRate: %{z:.1f}%<br>Expectancy: %{customdata[0]:.1f} pts<br>P&L: ₹%{customdata[1]:,.0f}<extra></extra>",
+                    colorscale="Greens"
+                ))
+                draw_borders(fig1)
+                fig1.update_layout(template="plotly_dark", height=600, xaxis_title="Target (₹)", yaxis_title="Stop Loss (₹)")
+                st.plotly_chart(fig1, use_container_width=True)
+
+            with ht2:
+                fig2 = go.Figure(data=go.Heatmap(
+                    z=hdf_exp.values, x=hdf_exp.columns, y=hdf_exp.index,
+                    text=hdf_exp.values, texttemplate="%{text:.1f}", customdata=cd_exp,
+                    hovertemplate="Target: ₹%{x}<br>SL: ₹%{y}<br>Expectancy: %{z:.1f} pts<br>WinRate: %{customdata[0]:.1f}%<br>P&L: ₹%{customdata[1]:,.0f}<extra></extra>",
+                    colorscale="RdYlGn", zmid=0
+                ))
+                draw_borders(fig2)
+                fig2.update_layout(template="plotly_dark", height=600, xaxis_title="Target (₹)", yaxis_title="Stop Loss (₹)")
+                st.plotly_chart(fig2, use_container_width=True)
+
+            st.info("""
+            **Heatmap Highlight Legend:**
+            * 🟥 **Red Box (Best Overall):** Balances Win Rate, Expectancy, and Total Profit, while mathematically favoring a tighter Stop Loss to reduce risk.
+            * 🟦 **Blue Box (Max Win Rate):** Strict priority on the highest possible win rate. If tied, it chooses the one with the smallest Stop Loss.
+            * ⬛ **Black Box (Clean Execution):** Finds setups with the absolute lowest number of End-Of-Day (EOD) exits. Prioritizes setups where trades decisively hit either the Target or the Stop Loss.
+            """)
 
     # ═══ TAB 4: PLAYBOOK ══════════════════════════
     with t4:
