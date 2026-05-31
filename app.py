@@ -1,4 +1,4 @@
-"""CPR Pro Scanner & Backtester v3.1 — © 2026 Buvenesh | Trisea Trader"""
+"""CPR Pro Scanner & Backtester v3.2 — © 2026 Buvenesh | Trisea Trader"""
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -47,7 +47,7 @@ def xl(df):
     return b.getvalue()
 
 def main():
-    st.set_page_config(page_title="CPR Pro v3.1 | Trisea Trader",page_icon="⚡",layout="wide")
+    st.set_page_config(page_title="CPR Pro v3.2 | Trisea Trader",page_icon="⚡",layout="wide")
     css()
     for k,v in {"rdf":pd.DataFrame(),"raw":pd.DataFrame(),"scan":[],"ran":False}.items():
         if k not in st.session_state: st.session_state[k]=v
@@ -85,7 +85,7 @@ def main():
     </div>
     """
     st.markdown(logo_svg, unsafe_allow_html=True)
-    st.markdown('<div class="hero"><h1>⚡ CPR PRO SCANNER & BACKTESTER v3.1</h1><p>Structure-Based Entry · Spot Signals · Futures Execution · © 2026 Buvenesh</p></div>',unsafe_allow_html=True)
+    st.markdown('<div class="hero"><h1>⚡ CPR PRO SCANNER & BACKTESTER v3.2</h1><p>Structure-Based Entry · Spot Signals · Futures Execution · © 2026 Buvenesh</p></div>',unsafe_allow_html=True)
     
     if "idx_scan" not in st.session_state:
         st.session_state.idx_scan = eng.scan_live_batch("Indices Only", 100)
@@ -137,7 +137,7 @@ def main():
 
     # ═══ TAB 2: STRATEGY LAB ═══════════════════════
     with t2:
-        st.markdown('<div class="sh">V3.1 Strategy Lab — Structure-Based Backtest</div>',unsafe_allow_html=True)
+        st.markdown('<div class="sh">V3.2 Strategy Lab — Structure-Based Backtest</div>',unsafe_allow_html=True)
         st.markdown('<div class="ib">Entry: 1st/2nd 5-min candle above PDH+R1 (BUY) or below PDL+S1 (SELL). R:R ≥ 1:1 enforced. Targets at next pivot level.</div>',unsafe_allow_html=True)
         c1,c2,c3,c4=st.columns([1.2,1,1,1.5])
         with c1: idx=st.selectbox("Index",list(eng.INDEX_CONFIG.keys()),key="idx")
@@ -476,7 +476,7 @@ def main():
 
     # ═══ TAB 4: PLAYBOOK ══════════════════════════
     with t4:
-        st.markdown('<div class="sh">V3.1 Strategy Playbook</div>',unsafe_allow_html=True)
+        st.markdown('<div class="sh">V3.2 Strategy Playbook</div>',unsafe_allow_html=True)
         for title,body in [
             ("1 · Entry Logic","<b>BUY:</b> 1st/2nd 5-min candle closes above <b>PDH + R1</b><br><b>SELL:</b> closes below <b>PDL + S1</b><br>Only 09:15–09:25 window. Max 1 trade/day.<br><b>Filter:</b> If 1st candle is a doji (body &lt; 40%), skip the entire day."),
             ("2 · Target","BUY above R1 → <b>R2</b>. Above R2 → <b>R3</b><br>SELL below S1 → <b>S2</b>. Below S2 → <b>S3</b><br>Target MUST be in correct direction. R:R ≥ 1:1 enforced."),
@@ -484,9 +484,9 @@ def main():
             ("4 · Exit","Full 1 lot. Target / SL / EOD 15:15. No partial booking."),
             ("5 · Lots","NIFTY=65 | BANK NIFTY=30 | FINNIFTY=60 | SENSEX=20 | BANKEX=30"),
             ("6 · CPR Types","Very Narrow (&lt;5%) · Narrow (5–15%) · Mid (15–35%) · Wide (&gt;35%)"),
-            ("7 · Fixes in v3.1","✅ Scenario A/B labels corrected<br>✅ Structural SL (Wider) fixed<br>✅ Body filter applied to whole day<br>✅ R:R ≥ 1:1 gate & Target direction"),
+            ("7 · Fixes in v3.2","✅ Scenario A/B labels corrected<br>✅ Structural SL (Wider) fixed<br>✅ Body filter applied to whole day<br>✅ R:R ≥ 1:1 gate & Target direction"),
         ]: st.markdown(f'<div class="rc"><h4>{title}</h4><p>{body}</p></div>',unsafe_allow_html=True)
 
-    st.markdown('<div class="ft">⚡ CPR Pro Scanner & Backtester v3.1<br>© 2026 Buvenesh | Trisea Trader. All Rights Reserved.</div>',unsafe_allow_html=True)
+    st.markdown('<div class="ft">⚡ CPR Pro Scanner & Backtester v3.2<br>© 2026 Buvenesh | Trisea Trader. All Rights Reserved.</div>',unsafe_allow_html=True)
 
 if __name__=="__main__": main()
