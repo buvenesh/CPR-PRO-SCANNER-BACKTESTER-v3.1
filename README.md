@@ -1,4 +1,4 @@
-# CPR Pro Scanner & Backtester v3.1
+# CPR Pro Scanner & Backtester v3.2
 ### © 2026 Buvenesh | Trisea Trader
 
 A professional-grade CPR (Central Pivot Range) breakout strategy backtester with live scanner for Indian markets.
